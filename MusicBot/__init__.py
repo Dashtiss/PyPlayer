@@ -28,8 +28,8 @@ async def on_ready():
         try:
             await bot.load_extension(f"MusicBot.Commands.{file.name[:-3]}")
             log(f"Loaded MusicBot.Commands.{file.name[:-3]}")
-        except (commands.errors.ExtensionFailed, commands.errors.NoEntryPointError):
-            error(f"MusicBot.Commands.{file.name[:-3]} failed to load skipping but it may break the bot. If you have problems, please report it in Issues of the github repo")
+        except (commands.errors.ExtensionFailed, commands.errors.NoEntryPointError) as e:
+            error(f"MusicBot.Commands.{file.name[:-3]} failed to load skipping but it may break the bot. If you have problems, please report it in Issues of the github repo {e}")
 
 
 
