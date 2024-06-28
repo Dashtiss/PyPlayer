@@ -3,12 +3,12 @@ from discord.ext import commands
 from .error import error, warn, log
 import os
 from os.path import join
+
 intents = discord.Intents.all()
 import asyncio
 from .Settings import BASE_DIR, CMD_DIR, UPLOADS_DIR
+
 # Start a task to leave voice channel if idle for more than 5 seconds
-
-
 
 
 bot = commands.Bot(
@@ -16,11 +16,12 @@ bot = commands.Bot(
     intents=intents
 )
 
+
 @bot.event
 async def on_ready():
     log("MusicBot Starting")
     os.makedirs(UPLOADS_DIR, exist_ok=True)
-    if len( bot.guilds ) == 0:
+    if len(bot.guilds) == 0:
         warn("The bot is not in a server")
 
     log("Loading Commands")
@@ -28,10 +29,22 @@ async def on_ready():
         try:
             await bot.load_extension(f"MusicBot.Commands.{file.name[:-3]}")
             log(f"Loaded MusicBot.Commands.{file.name[:-3]}")
-        except (commands.errors.ExtensionFailed, commands.errors.NoEntryPointError) as e:
-            error(f"MusicBot.Commands.{file.name[:-3]} failed to load skipping but it may break the bot. If you have problems, please report it in Issues of the github repo {e}")
-
+        except commands.errors.ExtensionFailed as e:
+            print(e)
+            error(
+                f"MusicBot.Commands.{file.name[:-3]} failed to load skipping but it may break the bot. If you have problems, please report it in Issues of the github repo\n {e}")
+        except commands.errors.NoEntryPointError:
+            continue
 
 
 def Startup(TOKEN: str):
     bot.run(TOKEN)
+
+
+def main() -> None:
+    from dotenv import load_dotenv
+    load_dotenv()
+    Startup(os.environ["TOKEN"])
+
+if __name__ == "__main__":
+    main()

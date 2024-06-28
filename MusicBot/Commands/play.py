@@ -1,6 +1,7 @@
 import os
 import yt_dlp
 from discord.ext import commands
+from discord import FFmpegPCMAudio
 from ..Settings import UPLOADS_DIR
 from ..error import error
 from ..Classes import PlayableMusic
@@ -30,11 +31,6 @@ async def play(ctx: commands.Context, *, url: str = None):
 
 
 
-
-
-
-
-
 async def DownloadYT(url: str) -> PlayableMusic | None:
     # Download the YouTube video
     ydl_opts = {
@@ -49,13 +45,12 @@ async def DownloadYT(url: str) -> PlayableMusic | None:
             info_dict = ydl.extract_info(url, download=True)
             file_path = ydl.prepare_filename(info_dict)
             duration = info_dict.get('duration', 0)  # Duration in seconds
-#            print(f"Title: {info_dict['title']}")
-#            print(f"Duration: {duration} seconds")
+            #            print(f"Title: {info_dict['title']}")
+            #            print(f"Duration: {duration} seconds")
             return PlayableMusic(Name=info_dict["title"], Duration=duration, Path=file_path)
         except Exception as e:
             error(f"An error occurred while downloading the video: {e}")
             return None
-
 
 
 async def setup(bot):

@@ -5,9 +5,6 @@ from MusicBot.error import error, warn
 import requests
 
 
-
-
-
 # Put your token here or in a .env file
 TOKEN = ""
 

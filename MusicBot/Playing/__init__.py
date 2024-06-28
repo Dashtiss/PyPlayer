@@ -7,17 +7,20 @@ queue: list[PlayableMusic] = []
 Playing: bool = False
 
 
-def StartPlaying(MusicName: str = None) -> FFmpegPCMAudio | None:
+def StartPlaying(MusicName: str = None):
     if MusicName:
         if any(file.Name == MusicName for file in queue):
             index = next((index for index, file in enumerate(queue) if file.Name == MusicName), None)
             if index is not None:
                 print(queue[index].Name)
-                return FFmpegPCMAudio(queue[index].Path)
-        return None
-    else:
-        for Item in queue:
-            yield FFmpegPCMAudio(Item.Path)
+    for music in PlayQueue():
+        yield music
+
+def PlayQueue() -> FFmpegPCMAudio:
+    for Music in queue:
+        yield FFmpegPCMAudio(Music.Path)
+
+
 
 def AddToQueue(Music: PlayableMusic):
     queue.append(Music)
@@ -32,4 +35,3 @@ def ShuffleQueue() -> bool:
             # Handle the exception if needed
             print(f"Exception caught at shuffle: {E}")
             return False
-    return False
