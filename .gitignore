@@ -1,5 +1,17 @@
 # Ignore .env file
 .env
-
+.cache
 # Ignore Uploads folder in MusicBot
 MusicBot/Uploads/
+
+# Ignore the .idea folder
+.idea
+
+# Ignore __pycashe__
+__pycache__
+
+# Ignore .vscode
+.vscode
+
+# Ignore *.pyc
+*.pyc
