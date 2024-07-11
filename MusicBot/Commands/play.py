@@ -15,117 +15,99 @@ from discord.ext import commands
 from discord import FFmpegPCMAudio
 from ..Settings import UPLOADS_DIR
 from ..error import error
-from ..Classes import PlayableMusic
+from ..Classes import PlayableMusic, FutureMusic
 from .. import Playing
 from ..Playing import UploadFiles, spotifyPlayer
 from os.path import join
 import requests
 import asyncio
 import spotipy
-from spotipy import  SpotifyClientCredentials
+from spotipy import SpotifyClientCredentials
 from ..Audio import turntomp3
 
 
-
+async def LeaveCall(ctx: commands.Context):
+    raise NotImplementedError("You havent emplemted the LeaveFunction")
 
 @commands.command()
 async def play(ctx: commands.Context, *, url: str = None):
     """
     Command to play music from a YouTube URL or attached file.
 
-    Parameters:
-    - ctx (commands.Context): The context of the command.
-    - url (str, optional): The URL of the YouTube video to play.
-
-    This function checks if a URL is provided. If so, it downloads the video and adds it to the queue.
-    If not, it checks if any files are attached to the message and downloads them, checking if they are viruses.
+    Args:
+        ctx (commands.Context): The context of the command.
+        url (str, optional): The URL of the YouTube video to play.
     """
+    # Check if the user is the bot owner
+    # if ctx.author.id != 0:
+    #     await ctx.reply("Only the bot owner can use this command", ephemeral=True)
+    #     return
 
-    if ctx.author.id != 690225608474492934:
-        await ctx.reply("Only the bot owner can use this command", ephemeral=True)
-        return
-
-    # Check if a YouTube URL is provided
     if url:
-        # Strip the URL of the "https://" prefix and split it by "/"
+        # Split the URL to get the domain
         url_parts = url.strip("https://").split("/")
-        print(url_parts[0])
-        print(os.listdir(UPLOADS_DIR))
+
+        # Check if the URL is a file in the uploads directory
         if url in os.listdir(UPLOADS_DIR):
-            Playing.AddToQueue(PlayableMusic(Name=url, Duration=0, Path=join(UPLOADS_DIR, url)))
-            print(f"Adding {url} to queue")
-        elif url_parts[0] in ("youtube.com", "youtu.be", "www.youtube.com", "www.youtu.be"):    
-            # Download the YouTube video
-            Music = await DownloadYT(url)
-            # Add the downloaded music to the queue if successful
-            if Music:
-                Playing.AddToQueue(Music)
-                print(f"Adding {Music.Name} to queue")
-        elif url_parts[0] in ("open.spotify.com", "spotify.com"):
-            # will log into spotify
-            ...
+            playable_music = PlayableMusic(Name=url, Duration=0, Path=join(UPLOADS_DIR, url))
+            Playing.AddToQueue(playable_music)
+        # Check if the URL is a YouTube video
+        elif url_parts[0] in ("youtube.com", "youtu.be", "www.youtube.com", "www.youtu.be"):
+            playable_music = await DownloadYT(url)
+            if playable_music:
+                Playing.AddToQueue(playable_music)
+        # Check if the URL is a Spotify link
+        elif url_parts[0] in ("open.spotify.com", "spotify.com", "www.spotify.com"):
+            # Check if the link is for a track
+            if "track" in url_parts[1]:
+                song = await spotifyPlayer.AddToQueueTrack(url)
+                Playing.AddToQueue(song)
+            # Check if the link is for a playlist
+            if "playlist" in url_parts[1]:
+                await ctx.reply("DONT USE THIS ERRORS HAPPEN")
+                for song in spotifyPlayer.AddToQueuePlaylist(url):
+                    Playing.AddToQueue(song)
+        # Check if the URL is a generic Spotify link
         else:
             song = await spotifyPlayer.FindAndDownloadSong(url)
-            if song.Name[-4:] == ".webm":
-                await turntomp3.webm_to_mp3(song.Path, song.Path[:-4] + ".mp3")
+            if song.Name.endswith(".webm"):
+                await turntomp3.webm_to_mp3(song.Path, f"{song.Path[:-4]}.mp3")
             Playing.AddToQueue(song)
-            print(f"Adding {song.Name} to queue")
+    ############################################################
+    #                        ADD ATTACHMENT                   #
+    ############################################################
 
-    # Check if any files are attached to the message
-    if len(ctx.message.attachments) > 0:
-        # Create the uploads directory if it doesn't exist
-        os.makedirs(UPLOADS_DIR, exist_ok=True)
-        # Iterate over each attached file
-        for File in ctx.message.attachments:
-            # Check if the file has already been downloaded
-            if File.filename in os.listdir(UPLOADS_DIR):
-                Playing.AddToQueue(
-                    PlayableMusic(
-                        Name=File.filename,
-                        Duration=0,
-                        Path=join(
-                                UPLOADS_DIR, 
-                                File.filename
-                        )
-                    )
+    # Check if there are any attachments in the message
+    if ctx.message.attachments:
+        for attachment in ctx.message.attachments:
+            # Check if the attachment is a file in the uploads directory
+            if attachment.filename in os.listdir(UPLOADS_DIR):
+                playable_music = PlayableMusic(
+                    Name=attachment.filename, Duration=0, Path=join(UPLOADS_DIR, attachment.filename)
                 )
-                print(f"Adding {File.filename} to queue")
-                continue
+                Playing.AddToQueue(playable_music)
+            # Check if the attachment is a valid URL
+            elif await UploadFiles.scan_url(attachment.url):
+                r = requests.get(attachment.url)
+                with open(join(UPLOADS_DIR, attachment.filename), "wb") as file:
+                    file.write(r.content)
+                playable_music = PlayableMusic(
+                    Name=attachment.filename, Duration=0, Path=join(UPLOADS_DIR, attachment.filename)
+                )
+                Playing.AddToQueue(playable_music)
 
-            # Check if the file is not a virus
-            if await UploadFiles.ScanURL(File.url):
-                # Download the file
-                r = requests.get(File.url)
-                # Save the file to the uploads directory
-                with open(join(UPLOADS_DIR, File.filename), "wb") as AudioFile:
-                    AudioFile.write(r.content)
-                Playing.AddToQueue(
-                    PlayableMusic(
-                        Name=File.filename,
-                        Duration=0,
-                        Path=join(
-                                UPLOADS_DIR, 
-                                File.filename
-                        )
-                    )
-                )
-                print(f"Adding {File.filename} to queue")
-            else:
-                # Reply to the user that the file is a virus
-                print(f"File {File.filename} has been detected as a virus")
-    # Start playing the queue if it is not already playing
+    # Start playing the music if not already playing
     if not Playing.Playing:
+        if not ctx.voice_client:
+            # Join the voice channel of the user
+            await ctx.author.voice.channel.connect()
+            # Set the bot to self-deaf mode
+            await ctx.guild.change_voice_state(channel=ctx.author.voice.channel, self_deaf=True)
+        # Start playing the music in the queue
         for music in Playing.StartPlaying():
-            # Will join the voice channel if it is not already in one
-            if not ctx.voice_client:
-                
-                await ctx.author.voice.channel.connect()
-            # Play the music
             ctx.voice_client.play(music)
-            Playing.Playing = True
-            # Wait until the music is finished
-            while ctx.voice_client.is_playing():
-                await asyncio.sleep(1)
+            Playing.playing = True
+
 
 async def DownloadYT(url: str) -> PlayableMusic | None:
     """
@@ -158,5 +140,5 @@ async def DownloadYT(url: str) -> PlayableMusic | None:
             return None
 
 
-async def setup(bot):
+async def setup(bot: commands.Bot):
     bot.add_command(play)

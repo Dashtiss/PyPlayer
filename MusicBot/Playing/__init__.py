@@ -1,8 +1,8 @@
 from typing import Generator
 from discord import FFmpegPCMAudio
 import random
-from ..Classes import PlayableMusic
-
+from ..Classes import PlayableMusic, FutureMusic
+from . import spotifyPlayer
 # Initialize the queue with a PlayableMusic object
 queue: list[PlayableMusic] = []
 Playing: bool = False
@@ -10,7 +10,11 @@ Playing: bool = False
 
 def StartPlaying():
     for Music in queue:
-        yield FFmpegPCMAudio(Music.Path)
+        if type(Music) == FutureMusic:
+            song = spotifyPlayer.DownloadSong(Music.VideoURL, Music.Name)
+            yield FFmpegPCMAudio(song.Path)
+        else:
+            yield FFmpegPCMAudio(Music.Path)
 
 
 
